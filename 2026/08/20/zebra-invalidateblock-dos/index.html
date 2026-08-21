@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 
-<title>About | Memeshort</title>
+<title>How a Single RPC Call Can Crash a Zebra Node | Memeshort</title>
 
 
 
@@ -13,14 +13,14 @@
 
 
 <!-- Open Graph -->
-<meta property="og:title" content="About">
-<meta property="og:type" content="website">
-<meta property="og:url" content="http://example.com/about/index.html">
+<meta property="og:title" content="How a Single RPC Call Can Crash a Zebra Node">
+<meta property="og:type" content="article">
+<meta property="og:url" content="http://example.com/2026/08/20/zebra-invalidateblock-dos/">
 <meta property="og:site_name" content="Memeshort">
 
 
 <!-- Canonical -->
-<link rel="canonical" href="http://example.com/about/index.html">
+<link rel="canonical" href="http://example.com/2026/08/20/zebra-invalidateblock-dos/">
 
 <!-- RSS Feed -->
 
@@ -113,7 +113,7 @@
 
       <div class="tab-strip" role="tablist">
         <div class="tab tab-active" role="tab" aria-selected="true">
-          <span class="tab-title">index</span>
+          <span class="tab-title">zebra-invalidateblock-dos</span>
           <a href="/" class="tab-close" title="Close" aria-label="Close">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
 
@@ -215,7 +215,7 @@
           <span class="nav-label">Archive</span>
         </a>
         
-        <a href="/about" class="nav-item active">
+        <a href="/about" class="nav-item">
           <svg class="nav-icon-svg" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
 
           <span class="nav-label">About</span>
@@ -466,7 +466,10 @@
             
 
   
-  <span class="breadcrumb-item breadcrumb-current">About</span>
+  <a href="/categories/Security/" class="breadcrumb-item">Security</a>
+
+  <span class="breadcrumb-sep">/</span>
+  <span class="breadcrumb-item breadcrumb-current">zebra-invalidateblock-dos</span>
 
 
           </nav>
@@ -474,17 +477,98 @@
         </div>
 
         <main class="note-view" id="note-view" role="main">
-          <article class="note-article page-article">
+          <article class="note-article" itemscope itemtype="http://schema.org/BlogPosting">
 
+  <!-- Note title header -->
   <header class="note-header">
-    <h1 class="note-title">About</h1>
+    <h1 class="note-title" itemprop="headline">How a Single RPC Call Can Crash a Zebra Node</h1>
+
+    <div class="note-meta">
+      <span class="note-meta-item">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></svg>
+
+        <time datetime="2026-08-21T02:30:00.000Z" itemprop="datePublished">
+          2026-08-20
+        </time>
+      </span>
+
+      
+      <span class="note-meta-item note-meta-updated">
+        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+
+        Updated 2026-08-20
+      </span>
+      
+    </div>
+
+    <!-- Tags row -->
+    
+    <div class="note-tags">
+      
+      <a href="/tags/security/" class="tag-pill">#security</a>
+      
+      <a href="/tags/blockchain/" class="tag-pill">#blockchain</a>
+      
+      <a href="/tags/zebra/" class="tag-pill">#zebra</a>
+      
+    </div>
+    
   </header>
 
-  <hr class="note-divider">
+  
 
-  <div class="markdown-body" id="markdown-body">
-    
+  <!-- <hr class="note-divider"> -->
+
+  <!-- Note content (markdown rendered) -->
+  <div class="markdown-body" id="markdown-body" itemprop="articleBody">
+    <p>Zebra is designed to keep its chain state predictable, but the report in this package shows how a single <code>invalidateblock</code> request can push that state into an impossible corner. The result is not data theft or consensus corruption. It is simpler, and in some ways more brutal: a remote caller can force the node to terminate.</p>
+<h2 id="What-happened"><a href="#What-happened" class="headerlink" title="What happened"></a>What happened</h2><p>The vulnerability appears when the only non-finalized chain is invalidated at its root. In that path, Zebra removes the entire chain from its internal <code>chain_set</code>. That would be fine if the rest of the system handled an empty non-finalized state as a normal condition. It does not.</p>
+<p>Later, the write worker assumes a best chain still exists and calls <code>expect()</code> on the result of <code>best_chain()</code>. Once the state is empty, that assumption collapses and the process panics. Because the release build uses <code>panic = &quot;abort&quot;</code>, the panic brings down the whole node.</p>
+<h2 id="Why-it-matters"><a href="#Why-it-matters" class="headerlink" title="Why it matters"></a>Why it matters</h2><p>This is a clean availability bug:</p>
+<ul>
+<li>one request is enough to trigger it;</li>
+<li>the request can be repeated after restart;</li>
+<li>the RPC response may still look successful before the crash;</li>
+<li>the impact is service loss, not a consensus fork or data leak.</li>
+</ul>
+<p>That makes the issue especially painful for deployments that expose RPC on an untrusted network, including the official Lightwalletd Docker example described in the report.</p>
+<h2 id="Root-cause-in-plain-English"><a href="#Root-cause-in-plain-English" class="headerlink" title="Root cause in plain English"></a>Root cause in plain English</h2><p>Two assumptions collide:</p>
+<ol>
+<li><code>invalidateblock</code> is allowed to delete the only remaining non-finalized chain.</li>
+<li><code>update_latest_chain_channels()</code> assumes there is always at least one non-finalized chain.</li>
+</ol>
+<p>Those assumptions are individually understandable, but together they form a trap. An external RPC request can create the exact state that internal code claims should never happen.</p>
+<h2 id="Reproduction-path"><a href="#Reproduction-path" class="headerlink" title="Reproduction path"></a>Reproduction path</h2><p>The report describes a minimal sequence:</p>
+<ol>
+<li>Create a state with only one non-finalized chain.</li>
+<li>Fetch the root block hash.</li>
+<li>Call <code>invalidateblock(root_hash)</code>.</li>
+<li>Receive a normal-looking RPC response.</li>
+<li>The write worker panics while updating chain channels.</li>
+<li>The node exits.</li>
+</ol>
+<p>The key detail is that the target must be the root of the only current non-finalized chain, not just any block at height 1.</p>
+<h2 id="Practical-fixes"><a href="#Practical-fixes" class="headerlink" title="Practical fixes"></a>Practical fixes</h2><p>The report recommends three sensible defenses:</p>
+<ul>
+<li>reject invalidations that would remove the last non-finalized chain, or support an explicit empty state;</li>
+<li>stop using <code>expect()</code> on state that external input can invalidate;</li>
+<li>only update chain channels after a successful invalidation and a confirmed best chain.</li>
+</ul>
+<p>Operationally, the safest deployment posture is still the boring one: keep RPC behind authentication, bind exposed services to trusted interfaces, and avoid anonymous access on public networks.</p>
+<h2 id="Final-note"><a href="#Final-note" class="headerlink" title="Final note"></a>Final note</h2><p>This is a good reminder that crash bugs often come from small mismatches between internal invariants and external APIs. The API says “invalidate this block.” The internals say “this state can never be empty.” Security problems live in that gap.</p>
+<h2 id="Preview"><a href="#Preview" class="headerlink" title="Preview"></a>Preview</h2><p><video controls preload="metadata" style="width:100%;max-width:100%;height:auto;" src="/attachments/zebra-invalidateblock-dos/poc.mp4"></video></p>
+<h2 id="Attachments"><a href="#Attachments" class="headerlink" title="Attachments"></a>Attachments</h2><ul>
+<li>Original report: <a href="/attachments/zebra-invalidateblock-dos/report.pdf">&#x2F;attachments&#x2F;zebra-invalidateblock-dos&#x2F;report.pdf</a></li>
+</ul>
+
   </div>
+
+  <!-- Post navigation -->
+  <nav class="post-nav" aria-label="Post navigation">
+    
+
+    
+  </nav>
 
 </article>
 
