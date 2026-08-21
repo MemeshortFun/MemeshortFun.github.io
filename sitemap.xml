@@ -2,6 +2,51 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
+    <loc>http://example.com/2026/08/21/zakura-broadcast-gateway-relay-hijacking/</loc>
+    
+    <lastmod>2026-08-21</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>http://example.com/2026/08/21/zakura-sendrawtransaction-retry-channel-poisoning/</loc>
+    
+    <lastmod>2026-08-21</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>http://example.com/2026/08/21/zakura-indexer-grpc-resource-boundaries/</loc>
+    
+    <lastmod>2026-08-21</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>http://example.com/2026/08/21/zakura-health-endpoint-slowloris/</loc>
+    
+    <lastmod>2026-08-21</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
+    <loc>http://example.com/2026/08/21/zakura-tls-rpc-handshake-exhaustion/</loc>
+    
+    <lastmod>2026-08-21</lastmod>
+    
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  
+  <url>
     <loc>http://example.com/2026/08/21/zakura-rpc-resource-exhaustion/</loc>
     
     <lastmod>2026-08-21</lastmod>
@@ -63,14 +108,21 @@
   </url>
   
   <url>
-    <loc>http://example.com/tags/denial-of-service/</loc>
+    <loc>http://example.com/tags/zakura/</loc>
     <lastmod>2026-08-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.2</priority>
   </url>
   
   <url>
-    <loc>http://example.com/tags/zakura/</loc>
+    <loc>http://example.com/tags/broadcast-gateway/</loc>
+    <lastmod>2026-08-21</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>http://example.com/tags/man-in-the-middle/</loc>
     <lastmod>2026-08-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.2</priority>
@@ -84,6 +136,27 @@
   </url>
   
   <url>
+    <loc>http://example.com/tags/denial-of-service/</loc>
+    <lastmod>2026-08-21</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>http://example.com/tags/slowloris/</loc>
+    <lastmod>2026-08-21</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>http://example.com/tags/health-check/</loc>
+    <lastmod>2026-08-21</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
     <loc>http://example.com/tags/zcash/</loc>
     <lastmod>2026-08-21</lastmod>
     <changefreq>weekly</changefreq>
@@ -91,7 +164,42 @@
   </url>
   
   <url>
+    <loc>http://example.com/tags/mempool/</loc>
+    <lastmod>2026-08-21</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>http://example.com/tags/grpc/</loc>
+    <lastmod>2026-08-21</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>http://example.com/tags/resource-limits/</loc>
+    <lastmod>2026-08-21</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>http://example.com/tags/hardening/</loc>
+    <lastmod>2026-08-21</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
     <loc>http://example.com/tags/zebra/</loc>
+    <lastmod>2026-08-21</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.2</priority>
+  </url>
+  
+  <url>
+    <loc>http://example.com/tags/tls/</loc>
     <lastmod>2026-08-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.2</priority>
