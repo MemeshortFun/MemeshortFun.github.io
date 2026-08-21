@@ -4,6 +4,37 @@
   
     
     <entry>
+      <title>How Zebra&#39;s Mempool Crawler Bypasses the Per-Peer Download Limit</title>
+      <link href="/2026/08/20/zebra-mempool-crawler-slot-bypass/"/>
+      <url>/2026/08/20/zebra-mempool-crawler-slot-bypass/</url>
+      
+        <content type="html"><![CDATA[<p>Zebra limits concurrent transaction downloads to protect its mempool. The global limit is 500 slots, and the normal per-peer limit is five. A flaw in the mempool crawler path allows one ordinary P2P peer to bypass the per-peer limit and fill all 500 global slots with fake transaction IDs.</p><p>The node does not crash, and CPU and memory usage can remain normal. The failure is quieter: legitimate transactions are rejected with <code>FullQueue</code>, so transfers may remain unconfirmed, merchants may not receive payment confirmations, and miners may build templates without transactions that would otherwise be available.</p><p>The issue affects <code>zebrad</code> v6.3.0 and was also reproduced against historical versions 6.2.2 and 6.2.3. The report states that <code>zcashd</code> is not affected.</p><h2 id="The-intended-protection"><a href="#The-intended-protection" class="headerlink" title="The intended protection"></a>The intended protection</h2><p>Zebra’s download pipeline has two relevant quotas:</p><figure class="highlight rust"><table><tr><td class="code"><pre><code class="hljs rust"><span class="hljs-keyword">pub</span> <span class="hljs-keyword">const</span> MAX_INBOUND_CONCURRENCY: <span class="hljs-type">usize</span> = <span class="hljs-number">500</span>;<br><span class="hljs-keyword">pub</span> <span class="hljs-keyword">const</span> MAX_INBOUND_CONCURRENCY_PER_PEER: <span class="hljs-type">usize</span> = <span class="hljs-number">5</span>;<br></code></pre></td></tr></table></figure><p>The global limit prevents download and validation work from exhausting host resources. The per-peer limit prevents one peer from occupying the entire global pool. It was introduced to address an earlier class of transaction-download abuse.</p><p>The protection depends on the download request carrying the address of the peer that supplied the transaction. When that source is present, Zebra can count pending downloads for that peer and return <code>FullQueue</code> after the fifth item.</p><h2 id="Where-the-crawler-differs"><a href="#Where-the-crawler-differs" class="headerlink" title="Where the crawler differs"></a>Where the crawler differs</h2><p>The normal broadcast path preserves the source peer:</p><figure class="highlight text"><table><tr><td class="code"><pre><code class="hljs text">inv(txid) -&gt; QueueFromPeer(source=Some(peer))<br>         -&gt; download_if_needed_and_verify(tx, Some(peer), ...)<br>         -&gt; per-peer count is checked<br></code></pre></td></tr></table></figure><p>The crawler path is different. Zebra proactively asks a selected peer for its mempool transaction list. The response is queued with <code>source=None</code>, even though the crawler knows which connection supplied the response:</p><figure class="highlight text"><table><tr><td class="code"><pre><code class="hljs text">crawler requests mempool<br>  -&gt; peer returns thousands of fake transaction IDs<br>  -&gt; Request::Queue(txids)<br>  -&gt; download_if_needed_and_verify(tx, None, ...)<br>  -&gt; per-peer check is skipped<br></code></pre></td></tr></table></figure><p>The <code>if let Some(source)</code> guard means that no per-peer accounting occurs when the source is <code>None</code>. A single crawler response can therefore inject thousands of IDs, while the global pool admits the first 500. Every later legitimate transaction encounters a full queue until slots are released.</p><h2 id="Attack-timeline"><a href="#Attack-timeline" class="headerlink" title="Attack timeline"></a>Attack timeline</h2><p>The attack only requires an ordinary P2P connection. No account, special privilege, or mining power is needed.</p><p>In the reported reproduction, the crawler selects three peers at random approximately every 73 seconds. When it selects the attacker’s connection, the attacker responds to the mempool request with about 5,000 fake transaction IDs and does not complete the subsequent <code>getdata</code> requests.</p><p>The resulting sequence is:</p><ol><li>The crawler selects the attacker’s peer.</li><li>The attacker returns thousands of fake transaction IDs.</li><li>The crawler queues the IDs without a source peer.</li><li>All 500 global download slots become occupied.</li><li>Legitimate transactions receive <code>FullQueue</code> and cannot enter the mempool.</li><li>Download timeouts release slots after roughly 20 seconds.</li><li>The next crawler cycle can fill the slots again.</li></ol><p>With a single IP, selection is probabilistic and the disruption is intermittent. Because the default <code>max_connections_per_ip</code> is one, multiple cooperating IP addresses increase the attacker’s coverage. The report estimates that approximately 15 IPs can approach nearly continuous selection, although this is not a one-request permanent outage.</p><h2 id="Why-previous-fixes-do-not-close-this-path"><a href="#Why-previous-fixes-do-not-close-this-path" class="headerlink" title="Why previous fixes do not close this path"></a>Why previous fixes do not close this path</h2><p>The crawler bypass remains after two related hardening changes. One fix limits per-peer work when a source peer is present. Another charges actively pushed full transactions or transaction messages against the per-peer budget. Both protections work on paths that pass <code>Some(peer)</code>.</p><p>The crawler explicitly passes <code>None</code>, so the guard bypasses both the accounting and the associated overload behavior. The code also treats crawler traffic as an intentional exemption without adding a compensating total limit for each crawler response or cycle.</p><p>That design creates a mismatch: the global pool is bounded at 500, but a single crawler response can attempt to populate the entire pool. A peer that repeatedly refuses the resulting <code>getdata</code> requests is not necessarily marked as misbehaving, and the crawler path does not consistently surface <code>FullQueue</code> as an overload signal.</p><h2 id="Observed-impact"><a href="#Observed-impact" class="headerlink" title="Observed impact"></a>Observed impact</h2><p>The report reproduced the issue in an isolated Regtest environment with Zebra v6.3.0. During saturation:</p><ul><li><code>mempool_currently_queued_transactions</code> reached 500;</li><li>the per-peer full-queue metric did not appear, consistent with the skipped source check;</li><li>the fake peer log showed 5,000 returned transaction IDs; and</li><li>Zebra remained alive with stable memory and approximately 0.1-0.2% CPU.</li></ul><p>This is an availability vulnerability, not a memory-exhaustion crash. It does not directly steal funds, alter existing blocks, corrupt on-disk state, or change consensus. The practical damage is transaction propagation failure and delayed confirmation.</p><p>The impact can reach multiple user groups. Wallet users may see transfers appear to vanish, merchants and payment gateways may wait indefinitely for confirmations, exchanges may experience delayed deposits and withdrawals, and miners may omit fee-paying transactions from block templates. Attacking several nodes at once could turn local transaction delays into broader propagation problems.</p><h2 id="Recommended-remediation"><a href="#Recommended-remediation" class="headerlink" title="Recommended remediation"></a>Recommended remediation</h2><p>The crawler should preserve the source peer when it queues transaction IDs. The peer address is already known because the crawler initiated the connection, so the request should carry <code>Some(peer)</code> into <code>download_if_needed_and_verify</code>. This makes the existing per-peer cap apply naturally.</p><p>Additional defenses should make the crawler safe even if source tracking fails again:</p><ul><li>impose a separate, substantially smaller transaction enqueue budget per crawler response and cycle;</li><li>associate repeated failed downloads with the supplying peer and apply misbehavior scoring or bans;</li><li>propagate <code>FullQueue</code> through the crawler path and disconnect peers that repeatedly inject unusable transaction IDs; and</li><li>remove or narrow the explicit crawler exemption instead of relying on a design comment as a security boundary.</li></ul><p>Regression tests should cover both the ordinary and crawler paths:</p><ol><li>Confirm that the existing broadcast path still enforces the five-transaction per-peer limit.</li><li>Return more than 500 fake transaction IDs from a crawler response and verify that one peer cannot occupy more than the configured per-peer quota.</li><li>Verify that the per-peer counter records crawler downloads under the supplying peer.</li><li>Confirm that a peer refusing <code>getdata</code> is assigned misbehavior and can eventually be banned.</li><li>After saturation recovers, verify that legitimate transactions enter the mempool normally.</li></ol><h2 id="Takeaway"><a href="#Takeaway" class="headerlink" title="Takeaway"></a>Takeaway</h2><p>Resource limits are only effective when every path that consumes the resource carries the identity and accounting context used by the limit. Zebra’s normal transaction path preserves that context; the crawler path discards it. The result is a bounded but meaningful denial of service in which the node looks healthy while refusing the transactions its users need.</p><p>For operators, keeping peers and node versions monitored remains important, but configuration alone cannot reliably eliminate this code-path issue. For maintainers, preserving the source peer and adding crawler-specific budgets and overload handling are the key repairs.</p><h2 id="Preview"><a href="#Preview" class="headerlink" title="Preview"></a>Preview</h2><p><video controls preload="metadata" style="width:100%;max-width:100%;height:auto;" src="/attachments/zebra-mempool-crawler-slot-bypass/poc.mp4"></video></p><h2 id="Attachments"><a href="#Attachments" class="headerlink" title="Attachments"></a>Attachments</h2><ul><li>Original report: <a href="/attachments/zebra-mempool-crawler-slot-bypass/report.pdf">&#x2F;attachments&#x2F;zebra-mempool-crawler-slot-bypass&#x2F;report.pdf</a></li><li>Github repository: <a href="https://github.com/MemeshortFun/zcash/tree/main/zebra-mempool-crawler-slot-bypass">https://github.com/MemeshortFun/zcash/tree/main/zebra-mempool-crawler-slot-bypass</a></li></ul>]]></content>
+      
+      
+      <categories>
+          
+          <category> Security </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> security </tag>
+            
+            <tag> denial-of-service </tag>
+            
+            <tag> zebra </tag>
+            
+            <tag> zcash </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>Unauthenticated Memory Exhaustion in Zebra&#39;s Tracing Filter Endpoint</title>
       <link href="/2026/08/20/zebra-filter-memory-exhaustion/"/>
       <url>/2026/08/20/zebra-filter-memory-exhaustion/</url>
@@ -22,9 +53,9 @@
             
             <tag> security </tag>
             
-            <tag> zebra </tag>
-            
             <tag> denial-of-service </tag>
+            
+            <tag> zebra </tag>
             
             <tag> zcash </tag>
             
@@ -53,9 +84,9 @@
             
             <tag> security </tag>
             
-            <tag> blockchain </tag>
-            
             <tag> zebra </tag>
+            
+            <tag> blockchain </tag>
             
         </tags>
       
